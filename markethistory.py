@@ -9,20 +9,12 @@ class MarketHistory:
         self.coins = ['BCH', 'DASH','DGB' , 'ETC', 'ETH', 'FCT', 'GNT', 'LTC', 'SC', 'STR', 'XEM', 'XMR', 'XRP', 'ZEC', 'reversed_USDT']                
         self.features = ['close', 'high', 'low']
         self.__storage_period = 300
-        self.df = self.get_global_data_matrix(start, end)
+        self.data = self.get_global_data_matrix(start, end)
 
     def get_global_data_matrix(self, start, end, period=1800):
-        """
-        :return a numpy ndarray whose axis is [feature, coin, time]
-        """
         return self.get_global_panel(start, end, period).values
 
     def get_global_panel(self, start, end, period=1800):
-        """
-        :param start/end: linux timestamp in seconds
-        :param period: time interval of each data access point
-        :return a panel, [feature, coin, time]
-        """
         start = int(start - (start%period))
         end = int(end - (end%period))
         
@@ -85,11 +77,6 @@ class MarketHistory:
         return panel
 
     def panel_fillna(self, panel, type="bfill"):
-        """
-        fill nan along the 3rd axis
-        :param panel: the panel to be filled
-        :param type: bfill or ffill
-        """
         frames = {}
         for item in panel.items:
             if type == "both":

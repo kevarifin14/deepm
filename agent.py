@@ -2,7 +2,10 @@ import numpy as np
 from constants import *
 
 class Agent:
-    def __init__(self, config, restore_dir=None, device="cpu"):
+    def __init__(self, period=1800, window=50, batch_size=50):
+        self.period = period
+        self.window = window
+        self.batch_size = 
         # self.__future_price = tf.concat([tf.ones([self.__net.input_num, 1]),
         #                                self.__y[:, 0, :]], 1)
         # self.__future_omega = (self.__future_price * self.__net.output) /\
