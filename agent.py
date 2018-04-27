@@ -5,7 +5,8 @@ class Agent:
     def __init__(self, period=1800, window=50, batch_size=50):
         self.period = period
         self.window = window
-        self.batch_size = 
+        self.batch_size = batch_size
+        self.
         # self.__future_price = tf.concat([tf.ones([self.__net.input_num, 1]),
         #                                self.__y[:, 0, :]], 1)
         # self.__future_omega = (self.__future_price * self.__net.output) /\
@@ -32,33 +33,33 @@ class Agent:
         # else:
         #     self.__net.session.run(tf.global_variables_initializer())
 
-    def train(self):
-        total_data_time = 0
-        total_training_time = 0
-        for i in range(self.train_config["steps"]):
-            step_start = time.time()
-            x, y, last_w, setw = self.next_batch()
-            finish_data = time.time()
-            total_data_time += (finish_data - step_start)
-            self._agent.train(x, y, last_w=last_w, setw=setw)
-            total_training_time += time.time() - finish_data
-            if i % 1000 == 0 and log_file_dir:
-                logging.info("average time for data accessing is %s"%(total_data_time/1000))
-                logging.info("average time for training is %s"%(total_training_time/1000))
-                total_training_time = 0
-                total_data_time = 0
-                self.log_between_steps(i)
+    # def train(self):
+    #     total_data_time = 0
+    #     total_training_time = 0
+    #     for i in range(self.train_config["steps"]):
+    #         step_start = time.time()
+    #         x, y, last_w, setw = self.next_batch()
+    #         finish_data = time.time()
+    #         total_data_time += (finish_data - step_start)
+    #         self._agent.train(x, y, last_w=last_w, setw=setw)
+    #         total_training_time += time.time() - finish_data
+    #         if i % 1000 == 0 and log_file_dir:
+    #             logging.info("average time for data accessing is %s"%(total_data_time/1000))
+    #             logging.info("average time for training is %s"%(total_training_time/1000))
+    #             total_training_time = 0
+    #             total_data_time = 0
+    #             self.log_between_steps(i)
 
-        if self.save_path:
-            self._agent.recycle()
-            best_agent = NNAgent(self.config, restore_dir=self.save_path)
-            self._agent = best_agent
+    #     if self.save_path:
+    #         self._agent.recycle()
+    #         best_agent = NNAgent(self.config, restore_dir=self.save_path)
+    #         self._agent = best_agent
 
-        pv, log_mean = self._evaluate("test", self._agent.portfolio_value, self._agent.log_mean)
-        logging.warning('the portfolio value train No.%s is %s log_mean is %s,'
-                        ' the training time is %d seconds' % (index, pv, log_mean, time.time() - starttime))
+    #     pv, log_mean = self._evaluate("test", self._agent.portfolio_value, self._agent.log_mean)
+    #     logging.warning('the portfolio value train No.%s is %s log_mean is %s,'
+    #                     ' the training time is %d seconds' % (index, pv, log_mean, time.time() - starttime))
 
-        return self.__log_result_csv(index, time.time() - starttime)
+    #     return self.__log_result_csv(index, time.time() - starttime)
 
 
     # def __set_loss_function(self):
@@ -101,25 +102,25 @@ class Agent:
     #             loss_tensor += regularization_loss
     #     return loss_tensor
 
-    def init_train(self, learning_rate, decay_steps, decay_rate, training_method):
-        learning_rate = tf.train.exponential_decay(learning_rate, self.__global_step,
-                                                   decay_steps, decay_rate, staircase=True)
-        if training_method == 'GradientDescent':
-            train_step = tf.train.GradientDescentOptimizer(learning_rate).\
-                         minimize(self.__loss, global_step=self.__global_step)
-        elif training_method == 'Adam':
-            train_step = tf.train.AdamOptimizer(learning_rate).\
-                         minimize(self.__loss, global_step=self.__global_step)
-        elif training_method == 'RMSProp':
-            train_step = tf.train.RMSPropOptimizer(learning_rate).\
-                         minimize(self.__loss, global_step=self.__global_step)
-        else:
-            raise ValueError()
-        return train_step
+    # def init_train(self, learning_rate, decay_steps, decay_rate, training_method):
+    #     learning_rate = tf.train.exponential_decay(learning_rate, self.__global_step,
+    #                                                decay_steps, decay_rate, staircase=True)
+    #     if training_method == 'GradientDescent':
+    #         train_step = tf.train.GradientDescentOptimizer(learning_rate).\
+    #                      minimize(self.__loss, global_step=self.__global_step)
+    #     elif training_method == 'Adam':
+    #         train_step = tf.train.AdamOptimizer(learning_rate).\
+    #                      minimize(self.__loss, global_step=self.__global_step)
+    #     elif training_method == 'RMSProp':
+    #         train_step = tf.train.RMSPropOptimizer(learning_rate).\
+    #                      minimize(self.__loss, global_step=self.__global_step)
+    #     else:
+    #         raise ValueError()
+    #     return train_step
 
-    def train(self, x, y, last_w, setw):
-        tflearn.is_training(True, self.__net.session)
-        self.evaluate_tensors(x, y, last_w, setw, [self.__train_operation])
+    # def train(self, x, y, last_w, setw):
+    #     tflearn.is_training(True, self.__net.session)
+    #     self.evaluate_tensors(x, y, last_w, setw, [self.__train_operation])
 
     # def evaluate_tensors(self, x, y, last_w, setw, tensors):
     #     """
