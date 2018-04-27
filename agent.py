@@ -2,37 +2,16 @@ import numpy as np
 from constants import *
 
 class Agent:
-    def __init__(self, period=1800, window=50, batch_size=50):
+    def __init__(self, net, period=1800, window=50, batch_size=50):
         self.period = period
         self.window = window
         self.batch_size = batch_size
-        self.
-        # self.__future_price = tf.concat([tf.ones([self.__net.input_num, 1]),
-        #                                self.__y[:, 0, :]], 1)
-        # self.__future_omega = (self.__future_price * self.__net.output) /\
-        #                       tf.reduce_sum(self.__future_price * self.__net.output, axis=1)[:, None]
-        # # tf.assert_equal(tf.reduce_sum(self.__future_omega, axis=1), tf.constant(1.0))
-        # self.__commission_ratio = self.__config["trading"]["trading_consumption"]
-        # self.__pv_vector = tf.reduce_sum(self.__net.output * self.__future_price, reduction_indices=[1]) *\
-        #                    (tf.concat([tf.ones(1), self.__pure_pc()], axis=0))
-        # self.__log_mean_free = tf.reduce_mean(tf.log(tf.reduce_sum(self.__net.output * self.__future_price,
-        #                                                            reduction_indices=[1])))
-        # self.__portfolio_value = tf.reduce_prod(self.__pv_vector)
-        # self.__mean = tf.reduce_mean(self.__pv_vector)
-        # self.__log_mean = tf.reduce_mean(tf.log(self.__pv_vector))
-        # self.__standard_deviation = tf.sqrt(tf.reduce_mean((self.__pv_vector - self.__mean) ** 2))
-        # self.__sharp_ratio = (self.__mean - 1) / self.__standard_deviation
-        # self.__loss = self.__set_loss_function()
-        # self.__train_operation = self.init_train(learning_rate=self.__config["training"]["learning_rate"],
-        #                                          decay_steps=self.__config["training"]["decay_steps"],
-        #                                          decay_rate=self.__config["training"]["decay_rate"],
-        #                                          training_method=self.__config["training"]["training_method"])
-        # self.__saver = tf.train.Saver()
-        # if restore_dir:
-        #     self.__saver.restore(self.__net.session, restore_dir)
-        # else:
-        #     self.__net.session.run(tf.global_variables_initializer())
+        self.net = net
+        self.train_iterations = 100
 
+    def train(self):
+        net.backward()
+    
     # def train(self):
     #     total_data_time = 0
     #     total_training_time = 0
