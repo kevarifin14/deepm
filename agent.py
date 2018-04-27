@@ -2,15 +2,34 @@ import numpy as np
 from constants import *
 
 class Agent:
-    def __init__(self, net, period=1800, window=50, batch_size=50):
+    def __init__(self, net, market_history, period=1800, window=50, batch_size=50):
         self.period = period
         self.window = window
         self.batch_size = batch_size
         self.net = net
         self.train_iterations = 100
+        self.market_history = market_history
+        self.w = np.zeros(market_history.data.shape[1])
+
 
     def train(self):
-        net.backward()
+        for i in range(self.train_iterations):
+            X, Y = self.next_batch()
+            print(self.net.forward(X))
+            # net.backward(X, Y)
+
+    def next_batch(self):
+        X = np.zeros((self.batch_size, self.market_history.data.shape[0], self.market_history.data.shape[1], self.window))
+        Y = np.zeros((self.batch_size, self.market_history.data.shape[1]))
+        for i in range(self.batch_size):
+            index = np.random.geometric(0.1)            
+            while index > self.market_history.data.shape[-1] - self.window:
+                index = np.random.geometric(0.1)
+            x = self.market_history.data[:, :, -index-self.window:-index]
+            y = self.market_history.data[0, :, -index]
+            X[i] = x
+            Y[i] = y
+        return X, Y
     
     # def train(self):
     #     total_data_time = 0
