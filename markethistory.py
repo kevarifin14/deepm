@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from constants import *
 import sqlite3
+import time
+from datetime import datetime
 
 
 class MarketHistory:
@@ -9,10 +11,14 @@ class MarketHistory:
         self.coins = ['BCH', 'DASH','DGB' , 'ETC', 'ETH', 'FCT', 'GNT', 'LTC', 'SC', 'STR', 'XEM', 'XMR', 'XRP', 'ZEC', 'reversed_USDT']                
         self.features = ['close', 'high', 'low']
         self.__storage_period = 300
-        self.data = self.get_global_data_matrix(start, end)
+        start_unix = int(self.parse_time(start))
+        end_unix = int(self.parse_time(end))
+        self.period = (start,end)
+        self.data = self.get_global_data_matrix(start_unix, end_unix)
 
     def get_global_data_matrix(self, start, end, period=1800):
-        return self.get_global_panel(start, end, period).values
+        matrix = self.get_global_panel(start, end, period).values
+        return self.matrix_filter_missing_coins(matrix)
 
     def get_global_panel(self, start, end, period=1800):
         start = int(start - (start%period))
@@ -71,9 +77,22 @@ class MarketHistory:
                                                     index_col="date_norm")
                     panel.loc[feature, coin, serial_data.index] = serial_data.squeeze()
                     panel = self.panel_fillna(panel, "both")
+                    
         finally:
             connection.commit()
             connection.close()
+        
+        return panel
+    
+    def matrix_filter_missing_coins(self, panel):
+        ###Check that data is present for all coins:
+        to_delete = []
+        for i in range(panel.shape[1]):
+            if np.isnan(panel[:,i,:]).sum() > (panel.shape[0] * panel.shape[2])/2:
+                to_delete.append(i)
+        panel = np.delete(panel,to_delete,axis=1)
+        bad_coins = [self.coins[i] for i in range(len(self.coins)) if i in to_delete]
+        print("Warning: missing data for following coins " + str(bad_coins))
         return panel
 
     def panel_fillna(self, panel, type="bfill"):
@@ -85,4 +104,7 @@ class MarketHistory:
             else:
                 frames[item] = panel.loc[item].fillna(axis=1, method=type)
         return pd.Panel(frames)
+    
+    def parse_time(self,time_string):
+        return time.mktime(datetime.strptime(time_string, "%Y/%m/%d").timetuple())
 
