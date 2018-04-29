@@ -2,63 +2,62 @@ import numpy as np
 from constants import *
 
 class Agent:
-    def __init__(self, period=1800, window=50, batch_size=50):
+    def __init__(self, net, market_history, period=1800, window=50, batch_size=50):
         self.period = period
         self.window = window
-        self.batch_size = 
-        # self.__future_price = tf.concat([tf.ones([self.__net.input_num, 1]),
-        #                                self.__y[:, 0, :]], 1)
-        # self.__future_omega = (self.__future_price * self.__net.output) /\
-        #                       tf.reduce_sum(self.__future_price * self.__net.output, axis=1)[:, None]
-        # # tf.assert_equal(tf.reduce_sum(self.__future_omega, axis=1), tf.constant(1.0))
-        # self.__commission_ratio = self.__config["trading"]["trading_consumption"]
-        # self.__pv_vector = tf.reduce_sum(self.__net.output * self.__future_price, reduction_indices=[1]) *\
-        #                    (tf.concat([tf.ones(1), self.__pure_pc()], axis=0))
-        # self.__log_mean_free = tf.reduce_mean(tf.log(tf.reduce_sum(self.__net.output * self.__future_price,
-        #                                                            reduction_indices=[1])))
-        # self.__portfolio_value = tf.reduce_prod(self.__pv_vector)
-        # self.__mean = tf.reduce_mean(self.__pv_vector)
-        # self.__log_mean = tf.reduce_mean(tf.log(self.__pv_vector))
-        # self.__standard_deviation = tf.sqrt(tf.reduce_mean((self.__pv_vector - self.__mean) ** 2))
-        # self.__sharp_ratio = (self.__mean - 1) / self.__standard_deviation
-        # self.__loss = self.__set_loss_function()
-        # self.__train_operation = self.init_train(learning_rate=self.__config["training"]["learning_rate"],
-        #                                          decay_steps=self.__config["training"]["decay_steps"],
-        #                                          decay_rate=self.__config["training"]["decay_rate"],
-        #                                          training_method=self.__config["training"]["training_method"])
-        # self.__saver = tf.train.Saver()
-        # if restore_dir:
-        #     self.__saver.restore(self.__net.session, restore_dir)
-        # else:
-        #     self.__net.session.run(tf.global_variables_initializer())
+        self.batch_size = batch_size
+        self.net = net
+        self.train_iterations = 100
+        self.market_history = market_history
+        self.w = np.zeros(market_history.data.shape[1])
+
 
     def train(self):
-        total_data_time = 0
-        total_training_time = 0
-        for i in range(self.train_config["steps"]):
-            step_start = time.time()
-            x, y, last_w, setw = self.next_batch()
-            finish_data = time.time()
-            total_data_time += (finish_data - step_start)
-            self._agent.train(x, y, last_w=last_w, setw=setw)
-            total_training_time += time.time() - finish_data
-            if i % 1000 == 0 and log_file_dir:
-                logging.info("average time for data accessing is %s"%(total_data_time/1000))
-                logging.info("average time for training is %s"%(total_training_time/1000))
-                total_training_time = 0
-                total_data_time = 0
-                self.log_between_steps(i)
+        for i in range(self.train_iterations):
+            X, Y = self.next_batch()
+            print(self.net.forward(X))
+            # net.backward(X, Y)
 
-        if self.save_path:
-            self._agent.recycle()
-            best_agent = NNAgent(self.config, restore_dir=self.save_path)
-            self._agent = best_agent
+    def next_batch(self):
+        X = np.zeros((self.batch_size, self.market_history.data.shape[0], self.market_history.data.shape[1], self.window))
+        Y = np.zeros((self.batch_size, self.market_history.data.shape[1]))
+        for i in range(self.batch_size):
+            index = np.random.geometric(0.1)            
+            while index > self.market_history.data.shape[-1] - self.window:
+                index = np.random.geometric(0.1)
+            x = self.market_history.data[:, :, -index-self.window:-index]
+            y = self.market_history.data[0, :, -index]
+            X[i] = x
+            Y[i] = y
+        return X, Y
+    
+    # def train(self):
+    #     total_data_time = 0
+    #     total_training_time = 0
+    #     for i in range(self.train_config["steps"]):
+    #         step_start = time.time()
+    #         x, y, last_w, setw = self.next_batch()
+    #         finish_data = time.time()
+    #         total_data_time += (finish_data - step_start)
+    #         self._agent.train(x, y, last_w=last_w, setw=setw)
+    #         total_training_time += time.time() - finish_data
+    #         if i % 1000 == 0 and log_file_dir:
+    #             logging.info("average time for data accessing is %s"%(total_data_time/1000))
+    #             logging.info("average time for training is %s"%(total_training_time/1000))
+    #             total_training_time = 0
+    #             total_data_time = 0
+    #             self.log_between_steps(i)
 
-        pv, log_mean = self._evaluate("test", self._agent.portfolio_value, self._agent.log_mean)
-        logging.warning('the portfolio value train No.%s is %s log_mean is %s,'
-                        ' the training time is %d seconds' % (index, pv, log_mean, time.time() - starttime))
+    #     if self.save_path:
+    #         self._agent.recycle()
+    #         best_agent = NNAgent(self.config, restore_dir=self.save_path)
+    #         self._agent = best_agent
 
-        return self.__log_result_csv(index, time.time() - starttime)
+    #     pv, log_mean = self._evaluate("test", self._agent.portfolio_value, self._agent.log_mean)
+    #     logging.warning('the portfolio value train No.%s is %s log_mean is %s,'
+    #                     ' the training time is %d seconds' % (index, pv, log_mean, time.time() - starttime))
+
+    #     return self.__log_result_csv(index, time.time() - starttime)
 
 
     # def __set_loss_function(self):
@@ -101,25 +100,25 @@ class Agent:
     #             loss_tensor += regularization_loss
     #     return loss_tensor
 
-    def init_train(self, learning_rate, decay_steps, decay_rate, training_method):
-        learning_rate = tf.train.exponential_decay(learning_rate, self.__global_step,
-                                                   decay_steps, decay_rate, staircase=True)
-        if training_method == 'GradientDescent':
-            train_step = tf.train.GradientDescentOptimizer(learning_rate).\
-                         minimize(self.__loss, global_step=self.__global_step)
-        elif training_method == 'Adam':
-            train_step = tf.train.AdamOptimizer(learning_rate).\
-                         minimize(self.__loss, global_step=self.__global_step)
-        elif training_method == 'RMSProp':
-            train_step = tf.train.RMSPropOptimizer(learning_rate).\
-                         minimize(self.__loss, global_step=self.__global_step)
-        else:
-            raise ValueError()
-        return train_step
+    # def init_train(self, learning_rate, decay_steps, decay_rate, training_method):
+    #     learning_rate = tf.train.exponential_decay(learning_rate, self.__global_step,
+    #                                                decay_steps, decay_rate, staircase=True)
+    #     if training_method == 'GradientDescent':
+    #         train_step = tf.train.GradientDescentOptimizer(learning_rate).\
+    #                      minimize(self.__loss, global_step=self.__global_step)
+    #     elif training_method == 'Adam':
+    #         train_step = tf.train.AdamOptimizer(learning_rate).\
+    #                      minimize(self.__loss, global_step=self.__global_step)
+    #     elif training_method == 'RMSProp':
+    #         train_step = tf.train.RMSPropOptimizer(learning_rate).\
+    #                      minimize(self.__loss, global_step=self.__global_step)
+    #     else:
+    #         raise ValueError()
+    #     return train_step
 
-    def train(self, x, y, last_w, setw):
-        tflearn.is_training(True, self.__net.session)
-        self.evaluate_tensors(x, y, last_w, setw, [self.__train_operation])
+    # def train(self, x, y, last_w, setw):
+    #     tflearn.is_training(True, self.__net.session)
+    #     self.evaluate_tensors(x, y, last_w, setw, [self.__train_operation])
 
     # def evaluate_tensors(self, x, y, last_w, setw, tensors):
     #     """
