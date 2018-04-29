@@ -92,6 +92,7 @@ class MarketHistory:
                 to_delete.append(i)
         panel = np.delete(panel,to_delete,axis=1)
         bad_coins = [self.coins[i] for i in range(len(self.coins)) if i in to_delete]
+        self.traded_coins = [self.coins[i] for i in range(len(self.coins)) if i not in to_delete]
         print("Warning: missing data for following coins " + str(bad_coins))
         return panel
 

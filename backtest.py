@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 class Backtest:
+    
     '''Performs basic functionalities of a trading simulation.
        Parameters: --- start and end dates for training and testing, as string of format year/month/day
                    --- agent, whether trained or not, with functionality get_policy(data) which generates a numpy matrix
@@ -17,22 +18,25 @@ class Backtest:
        TODOS: -- Add visualization functionalities for trading performance such as max drawdown, # of trades per asset, 
        performance per asset etc.
               -- Enable user to automatically save the backtest and agent to some location.'''
-    def __init__(self,agent,start_training,end_training,start_testing,end_testing,period=1800):
+    
+    def __init__(self,agent,start_training,end_training,start_testing,end_testing,period=1800,include_fees=True):
         self.agent = agent
         self.period = period
         self.start_training_date = start_training
         self.end_training_date = end_training
         self.start_testing_date = start_testing
         self.end_testing_date = end_testing
-        self.data_train = MarketHistory(start_training,end_training).data
+        mh_train = MarketHistory(start_training,end_training)
+        self.coins = mh_train.traded_coins
+        self.data_train = mh_train.data
         self.data_test = MarketHistory(start_testing,end_testing).data
         if agent is None:
             policy_train,policy_test = None,None
         else:
             policy_train = agent.get_policy(self.data_train)
             policy_test = agent.get_policy(self.data_test)
-        self.train_returns = self.calculate_returns(self.data_train,policy_train)
-        self.test_returns = self.calculate_returns(self.data_test,policy_test)
+        self.train_returns = self.calculate_returns(self.data_train,policy_train,include_fees=include_fees)
+        self.test_returns = self.calculate_returns(self.data_test,policy_test,include_fees=include_fees)
         self.performance_summary()
         
     def calculate_returns(self,data,policy=None,include_fees=True):
@@ -40,15 +44,25 @@ class Backtest:
             weights = np.random.rand(data.shape[2]-1,data.shape[1])
             weights = weights / np.sum(weights,axis=1).reshape(-1,1)
         else:
-            weights = policy.weights
+            weights = policy[:-1,:]
         prices_trading = data[0,:,:]
         returns = np.diff(prices_trading,axis=1)
         ret = (returns / prices_trading[:,:-1]).T
         return_per_stamp = np.sum(weights * ret,axis=1)
+        count_trades = np.sum(abs(np.diff(weights,axis=0)) > 0, axis=1)
+        self.total_trades = np.sum(count_trades)
+        trades_per_asset = np.sum(abs(np.diff(weights,axis=0)) > 0, axis=0)
+        trades = {}
+        for i in range(len(trades_per_asset)):
+            trades[self.coins[i]] = trades_per_asset[i]
+        self.num_trades = trades
         if include_fees is True:
+            count_trades = np.hstack([[0],count_trades]) #always no trade at the first timestep (all cash)
+            fees = count_trades * FLAT_FEE
             fees = np.sum(weights != 0,axis=1) * FLAT_FEE
             return_per_stamp = return_per_stamp - fees
         return return_per_stamp
+    
     def performance_summary(self):
         geo_returns_train = np.cumprod(self.train_returns + 1)
         geo_returns_test = np.cumprod(self.test_returns + 1)
@@ -67,8 +81,12 @@ class Backtest:
                            "Final portfolio value": geo_returns_train[-1],"Sharpe":sharpe_train}\
                    ,"Test":{"Start":self.start_testing_date,"End":self.end_testing_date,"Average return":mean_return_test,
                            "Final portfolio value": geo_returns_test[-1],"Sharpe":sharpe_test}}
-        self.summary = pd.DataFrame(summary)
+        summary = pd.DataFrame(summary).T
+        summary.columns = ["Start","End","Final portfolio value","Average return","Sharpe"]
+        self.summary = summary
         print(self.summary)
+        print("Number of trades per asset :")
+        print(self.num_trades)
         
     def plot_performance(self):
         geo_returns_train = np.cumprod(self.train_returns + 1)
