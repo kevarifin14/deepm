@@ -8,10 +8,16 @@ class Agent:
         self.batch_size = batch_size
         self.net = net
         self.train_iterations = 100
-        self.market_history = market_history
+        self.data_global = 
+        
         self.w = np.zeros(market_history.data.shape[1])
 
-
+    def get_data(self):
+        num_feature, num_asset, T = data_global.shape
+        btc_price_tensor = np.ones((num_feature, 1, T))
+        data_global = np.concatenate((btc_price_tensor, data_global), axis=1)
+        self.data_global = market_history.data
+    
     def train(self):
         for i in range(self.train_iterations):
             X, Y = self.next_batch()
