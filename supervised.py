@@ -6,14 +6,14 @@ import pandas as pd
 import xgboost as xgb
 
 CLOSE_INDEX = 0 ###USED TO CALCULATE RETURNS###
-DEFAULT_PARAMS = {'max_depth':10, 'eta':.25, 'silent':0,'alpha':1,'min_child_weight':5, 'objective':obj }
+DEFAULT_PARAMS = {'max_depth':5, 'eta':.25, 'silent':0,'alpha':1,'min_child_weight':5, 'objective':"binary:logistic" }
 
 class Agent:
     """
     Train a different model for each asset. Based on performance on validation set, decide whether to trade or not.
     Allocation uniform across traded coins.
     """
-    def __init__(self,data,thres_val=.4,max_gap=.4):
+    def __init__(self,data,coin_names,thres_val=.4,max_gap=.4):
         """
         Init with: --- data: a dictionary containing training and validation sets for each of the coins.
                    --- thres_val: worst allowed performance on validation set for a model on a particular coin to be trading.
@@ -21,23 +21,25 @@ class Agent:
         """
         models = {}
         for coin in data:
+            print("Training coin: " + coin_names[coin])
             v = data[coin]
             dtrain = v["train"]
-            self.X_train = dtrain[0]
-            self.y_train = dtrain[1]
+            X_train = dtrain[0]
+            y_train = dtrain[1]
             dvalid = v["valid"]
-            self.X_valid = dvalid[0]
-            self.y_valid = dvalid[1]
+            X_valid = dvalid[0]
+            y_valid = dvalid[1]
             model = BoostedTreeModel()
             model.train(X_train,y_train)
             model.validate(X_valid,y_valid)
-            models[coin] = model
+            models[coin_names[coin]] = model
+        self.models = models
         self.select_traders(thres_val,max_gap)
     def select_traders(self,thres_val=.4,max_gap=.4):
         traders = {}
         coins = []
-        for coin in models:
-            model = models[coin]
+        for coin in self.models:
+            model = self.models[coin]
             if model.valid_error <= thres_val:
                 if model.valid_error - model.train_error <= max_gap:
                     traders[coin] = model
@@ -49,20 +51,22 @@ class Agent:
 
 
 class BoostedTreeModel:
-    def __init__(self,params=DEFAULT_PARAMS,num_rounds=15):
+    def __init__(self,params=DEFAULT_PARAMS,num_rounds=10):
         self.params = params
         self.num_rounds = num_rounds
     def train(self,X,y):
         dtrain = xgb.DMatrix(X,label=y)
         self.bst = xgb.train(self.params, dtrain, self.num_rounds)
         self.train_error = float(self.bst.eval(dtrain)[15:20])
-        print("Training error")
-        print(self.train_error)
+        if self.params["silent"] == 0:
+            print("Training error")
+            print(self.train_error)
     def validate(self,X,y):
         dvalid = xgb.DMatrix(X,label=y)
         self.valid_error = float(self.bst.eval(dvalid)[15:20])
-        print("Validation error")
-        print(self.valid_error)
+        if self.params["silent"] == 0:
+            print("Validation error")
+            print(self.valid_error)
     def predict(self,X):
         dtest = xgb.DMatrix(X)
         return self.bst.predict(dtest)
@@ -109,7 +113,7 @@ def data_maker(history,lookback_window=10, style="classification", shuffle=False
             X.append(series[:,i-lookback_window:i].reshape(-1))
             ret = returns[CLOSE_INDEX,i-offset]
             if style == "classification":
-                y.append(np.sign(ret))
+                y.append((np.sign(ret)+1)/2)
             elif style == "regression":
                 y.append(ret)
         if shuffle is True:
