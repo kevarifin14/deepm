@@ -7,5 +7,15 @@
         "long_window": 200,
         "coins": ["BCH", "DASH","DGB" , "ETC", "ETH", "FCT", "GNT", "LTC", "SC", "STR", "XEM", "XMR", "XRP", "ZEC", "reversed_USDT"],
         "features": ["close", "high", "low", "volume"]
+    },
+    "agent": {
+        "period": 1800, 
+        "window": 50,
+        "batch_size": 128,
+        "train_iterations": 1000,
+        "txn_fee": 0.0025, 
+        "sampling_bias": 1.9e-3,
+        "num_assets": 12, 
+        "lr": 0.1
     }
 }

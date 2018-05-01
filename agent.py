@@ -1,189 +1,171 @@
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 from constants import *
+from markethistory import *
+
 
 class Agent:
-    def __init__(self, net, market_history, period=1800, window=50, batch_size=50):
-        self.period = period
-        self.window = window
-        self.batch_size = batch_size
-        self.net = net
-        self.train_iterations = 100
+    def __init__(self, policy, config, data=None):
+        self.config = config['agent']
+        self.period = self.config['period']
+        self.window = self.config['window']
+        self.batch_size = self.config['batch_size']
+        self.train_iterations = self.config['train_iterations']
+        self.txn_fee = self.config['txn_fee']
+        self.sampling_bias = self.config['sampling_bias']
+        self.num_assets = self.config['num_assets']
+        self.lr = self.config['lr']
         
-        self.w = np.zeros(market_history.data.shape[1])
+        if data is None:
+            self.data_global = self.get_data(config)
+        else: 
+            self.data_global = data
+        self.data_train, self.data_valid, self.data_test = self.split_data()
+        self.policy = policy
 
-    def get_data(self):
+    def get_data(self, config):
+        data_global = MarketHistory(config).data
         num_feature, num_asset, T = data_global.shape
         btc_price_tensor = np.ones((num_feature, 1, T))
         data_global = np.concatenate((btc_price_tensor, data_global), axis=1)
-        self.data_global = market_history.data
+        print("Global data tensor shape:", data_global.shape)
+        return data_global
+
+    def split_data(self):
+        num_feature, num_asset, T = self.data_global.shape
+        T_test = int(0.1 * T)
+        T_valid = int(0.2 * T)
+        T_train = T - T_test - T_valid
+
+        data_global = torch.from_numpy(self.data_global)
+        return data_global[:, :, :T_train], data_global[:, :, T_train:T_train+T_valid], data_global[:, :, T_train+T_valid:]
+
+    def sample(self, start, end, bias):
+        """
+        Geometrically sample a number in [START, END)
+        
+        Input:
+        - start: the start (inclusive)
+        - end: the end (exclusive)
+        - bias: a number between 0 to 1. The closer the bias to 1, the more
+        likely to generate a sample closer to END.
+        """
+        offset = np.random.geometric(bias)
+        return max(end - offset, start)
     
-    def train(self):
-        for i in range(self.train_iterations):
-            X, Y = self.next_batch()
-            print(self.net.forward(X))
-            # net.backward(X, Y)
+    def sample_batch(self, batch_size, start, end, bias):
+        """
+        Sample a batch of numbers geometrically distributed in [START, END)
+        """
+        return torch.tensor([self.sample(start, end, bias) for _ in range(batch_size)])
 
-    def next_batch(self):
-        X = np.zeros((self.batch_size, self.market_history.data.shape[0], self.market_history.data.shape[1], self.window))
-        Y = np.zeros((self.batch_size, self.market_history.data.shape[1]))
-        for i in range(self.batch_size):
-            index = np.random.geometric(0.1)            
-            while index > self.market_history.data.shape[-1] - self.window:
-                index = np.random.geometric(0.1)
-            x = self.market_history.data[:, :, -index-self.window:-index]
-            y = self.market_history.data[0, :, -index]
-            X[i] = x
-            Y[i] = y
-        return X, Y
-    
-    # def train(self):
-    #     total_data_time = 0
-    #     total_training_time = 0
-    #     for i in range(self.train_config["steps"]):
-    #         step_start = time.time()
-    #         x, y, last_w, setw = self.next_batch()
-    #         finish_data = time.time()
-    #         total_data_time += (finish_data - step_start)
-    #         self._agent.train(x, y, last_w=last_w, setw=setw)
-    #         total_training_time += time.time() - finish_data
-    #         if i % 1000 == 0 and log_file_dir:
-    #             logging.info("average time for data accessing is %s"%(total_data_time/1000))
-    #             logging.info("average time for training is %s"%(total_training_time/1000))
-    #             total_training_time = 0
-    #             total_data_time = 0
-    #             self.log_between_steps(i)
+    def get_observation(self, end_t_batch, history):
+        """
+        Get a batch of price history of length OBS_WINDOW, ending at END_T_BATCH (inclusive).
+        
+        Input:
+        - end_t_batch: The end time indices of this observation. Shape: [BATCH_SIZE].
+        - history: The price history tensor of shape [NUM_FEATURE, NUM_ASSET, T]
+        
+        Returns:
+        - obs: A torch tensor of shape [BATCH_SIZE, NUM_FEATURE, NUM_ASSET, OBS_WINDOW]
+        """
+        obs = []
+        for offset in range(self.window - 1, -1, -1):
+            t_batch = end_t_batch - offset
+            observation = history[:3, :, t_batch].permute(2, 0, 1)
+            obs.append(observation)
+        obs_prices = torch.stack(obs, dim=-1)
+        
+        # normalize each asset's prices by its lastest closing prices
+        last_close_prices = obs_prices[:, 0, :, -1]
+        tmp = obs_prices.permute(1, 3, 0, 2) / last_close_prices
+        obs_prices = tmp.permute(2, 0, 3, 1)
 
-    #     if self.save_path:
-    #         self._agent.recycle()
-    #         best_agent = NNAgent(self.config, restore_dir=self.save_path)
-    #         self._agent = best_agent
+        obs = []
+        for offset in range(self.window - 1, -1, -1):
+            t_batch = end_t_batch - offset
+            observation = history[3:, :, t_batch].permute(2, 0, 1)
+            obs.append(observation)
+        obs_features = torch.stack(obs, dim=-1)
+        
+        obs = torch.cat((obs_prices, obs_features), 1)
+        obs = obs.type(torch.float32)
+        return obs
 
-    #     pv, log_mean = self._evaluate("test", self._agent.portfolio_value, self._agent.log_mean)
-    #     logging.warning('the portfolio value train No.%s is %s log_mean is %s,'
-    #                     ' the training time is %d seconds' % (index, pv, log_mean, time.time() - starttime))
+    def calculate_shrinkage(self, w, w_prev):
+        """
+        Calculate the porfolio value shrinkage during a portfolio weight re-allocation due
+        to transaction fees.
+        This function calculates the shrinkage using an iterative approximation method. See
+        equation (14) of the Deep Portfolio Management paper. 
+        
+        Input:
+        - w: Target portfolio weight tensor of shape [BATCH_SIZE, NUM_ASSET]
+        - w_prev: Previous portfolio weight tensor of shape [BATCH_SIZE, NUM_ASSET]
+        
+        Returns:
+        - shrinkage: Portfolio value shrinkage multipler tensor of shape [BATCH_SIZE]
+        """
+        w0_0, w0_m = w_prev[:, 0], w_prev[:, 1:]
+        w1_0, w1_m = w[:, 0], w[:, 1:]
+        
+        const1 = 1 - self.txn_fee * w0_0
+        const2 = 2 * self.txn_fee - self.txn_fee ** 2
+        const3 = 1 - self.txn_fee * w1_0
+        
+        u = self.txn_fee * torch.sum(torch.abs(w0_m - w1_m))
+        w1_m_T = w1_m.transpose(0, 1)
+        while True:
+            u_next = (const1 - const2 * torch.sum(F.relu(w0_m - (u*w1_m_T).transpose(0,1)), dim=1)) / const3
+            max_diff = torch.max(torch.abs(u - u_next))
+            if max_diff <= 1e-10:
+                return u_next
+            u = u_next
 
-    #     return self.__log_result_csv(index, time.time() - starttime)
-
-
-    # def __set_loss_function(self):
-    #     def loss_function4():
-    #         return -tf.reduce_mean(tf.log(tf.reduce_sum(self.__net.output[:] * self.__future_price,
-    #                                                     reduction_indices=[1])))
-
-    #     def loss_function5():
-    #         return -tf.reduce_mean(tf.log(tf.reduce_sum(self.__net.output * self.__future_price, reduction_indices=[1]))) + \
-    #                LAMBDA * tf.reduce_mean(tf.reduce_sum(-tf.log(1 + 1e-6 - self.__net.output), reduction_indices=[1]))
-
-    #     def loss_function6():
-    #         return -tf.reduce_mean(tf.log(self.pv_vector))
-
-    #     def loss_function7():
-    #         return -tf.reduce_mean(tf.log(self.pv_vector)) + \
-    #                LAMBDA * tf.reduce_mean(tf.reduce_sum(-tf.log(1 + 1e-6 - self.__net.output), reduction_indices=[1]))
-
-    #     def with_last_w():
-    #         return -tf.reduce_mean(tf.log(tf.reduce_sum(self.__net.output[:] * self.__future_price, reduction_indices=[1])
-    #                                       -tf.reduce_sum(tf.abs(self.__net.output[:, 1:] - self.__net.previous_w)
-    #                                                      *self.__commission_ratio, reduction_indices=[1])))
-
-    #     loss_function = loss_function5
-    #     if self.__config["training"]["loss_function"] == "loss_function4":
-    #         loss_function = loss_function4
-    #     elif self.__config["training"]["loss_function"] == "loss_function5":
-    #         loss_function = loss_function5
-    #     elif self.__config["training"]["loss_function"] == "loss_function6":
-    #         loss_function = loss_function6
-    #     elif self.__config["training"]["loss_function"] == "loss_function7":
-    #         loss_function = loss_function7
-    #     elif self.__config["training"]["loss_function"] == "loss_function8":
-    #         loss_function = with_last_w
-
-    #     loss_tensor = loss_function()
-    #     regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-    #     if regularization_losses:
-    #         for regularization_loss in regularization_losses:
-    #             loss_tensor += regularization_loss
-    #     return loss_tensor
-
-    # def init_train(self, learning_rate, decay_steps, decay_rate, training_method):
-    #     learning_rate = tf.train.exponential_decay(learning_rate, self.__global_step,
-    #                                                decay_steps, decay_rate, staircase=True)
-    #     if training_method == 'GradientDescent':
-    #         train_step = tf.train.GradientDescentOptimizer(learning_rate).\
-    #                      minimize(self.__loss, global_step=self.__global_step)
-    #     elif training_method == 'Adam':
-    #         train_step = tf.train.AdamOptimizer(learning_rate).\
-    #                      minimize(self.__loss, global_step=self.__global_step)
-    #     elif training_method == 'RMSProp':
-    #         train_step = tf.train.RMSPropOptimizer(learning_rate).\
-    #                      minimize(self.__loss, global_step=self.__global_step)
-    #     else:
-    #         raise ValueError()
-    #     return train_step
-
-    # def train(self, x, y, last_w, setw):
-    #     tflearn.is_training(True, self.__net.session)
-    #     self.evaluate_tensors(x, y, last_w, setw, [self.__train_operation])
-
-    # def evaluate_tensors(self, x, y, last_w, setw, tensors):
-    #     """
-    #     :param x:
-    #     :param y:
-    #     :param last_w:
-    #     :param setw: a function, pass the output w to it to fill the PVM
-    #     :param tensors:
-    #     :return:
-    #     """
-    #     tensors = list(tensors)
-    #     tensors.append(self.__net.output)
-    #     assert not np.any(np.isnan(x))
-    #     assert not np.any(np.isnan(y))
-    #     assert not np.any(np.isnan(last_w)),\
-    #         "the last_w is {}".format(last_w)
-    #     results = self.__net.session.run(tensors,
-    #                                      feed_dict={self.__net.input_tensor: x,
-    #                                                 self.__y: y,
-    #                                                 self.__net.previous_w: last_w,
-    #                                                 self.__net.input_num: x.shape[0]})
-    #     setw(results[-1][:, 1:])
-    #     return results[:-1]
-
-    # # save the variables path including file name
-    # def save_model(self, path):
-    #     self.__saver.save(self.__net.session, path)
-
-    # # consumption vector (on each periods)
-    # def __pure_pc(self):
-    #     c = self.__commission_ratio
-    #     w_t = self.__future_omega[:self.__net.input_num-1]  # rebalanced
-    #     w_t1 = self.__net.output[1:self.__net.input_num]
-    #     mu = 1 - tf.reduce_sum(tf.abs(w_t1[:, 1:]-w_t[:, 1:]), axis=1)*c
-    #     """
-    #     mu = 1-3*c+c**2
-
-    #     def recurse(mu0):
-    #         factor1 = 1/(1 - c*w_t1[:, 0])
-    #         if isinstance(mu0, float):
-    #             mu0 = mu0
-    #         else:
-    #             mu0 = mu0[:, None]
-    #         factor2 = 1 - c*w_t[:, 0] - (2*c - c**2)*tf.reduce_sum(
-    #             tf.nn.relu(w_t[:, 1:] - mu0 * w_t1[:, 1:]), axis=1)
-    #         return factor1*factor2
-
-    #     for i in range(20):
-    #         mu = recurse(mu)
-    #     """
-    #     return mu
-
-    # # the history is a 3d matrix, return a asset vector
-    # def decide_by_history(self, history, last_w):
-    #     assert isinstance(history, np.ndarray),\
-    #         "the history should be a numpy array, not %s" % type(history)
-    #     assert not np.any(np.isnan(last_w))
-    #     assert not np.any(np.isnan(history))
-    #     tflearn.is_training(False, self.session)
-    #     history = history[np.newaxis, :, :, :]
-    #     return np.squeeze(self.session.run(self.__net.output, feed_dict={self.__net.input_tensor: history,
-    #                                                                      self.__net.previous_w: last_w[np.newaxis, 1:],
-    #                                                                      self.__net.input_num: 1}))
+    def train(self, episodes=10000):
+        optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
+        T = self.data_train.shape[-1]
+        
+        for i in range(episodes):
+            # geometrically sample start times: [batch]
+            start_indices = self.sample_batch(self.batch_size, self.window, T-self.window, self.sampling_bias)
+            # initialize portfolio weights: [batch, asset]
+            pf_w = (torch.ones(self.num_assets) / self.num_assets).repeat(self.batch_size, 1)
+            # initialize portfolio values: [batch]
+            pf_v = torch.ones(self.batch_size)
+            
+            # simulate one episode of live trading with the policy
+            loss = 0
+            price_curr = self.data_train[0, :, start_indices].transpose(0, 1).type(torch.float32) # [batch, asset]
+            for t in range(0, self.window):
+                price_next = self.data_train[0, :, start_indices+t+1].transpose(0, 1).type(torch.float32) # [batch, asset]
+                obs = self.get_observation(start_indices+t, self.data_train)
+                
+                pf_w_t_start = self.policy.forward(obs, pf_w)
+                shrinkage = self.calculate_shrinkage(pf_w_t_start, pf_w)
+                pf_v_t_start = (pf_v * shrinkage).type(torch.float32)
+                
+                w_tmp = (price_next / price_curr) * pf_w_t_start # [batch, asset]
+                w_tmp_sum = torch.sum(w_tmp, dim=1) # [batch]
+                pf_v_t_end = w_tmp_sum * pf_v_t_start
+                pf_w_t_end = w_tmp / w_tmp_sum.view(self.batch_size, 1)
+                
+                batch_reward = torch.log(pf_v_t_end / pf_v)
+                loss -= torch.sum(batch_reward) / self.batch_size
+                
+                # update variables
+                pf_w = pf_w_t_end
+                pf_v = pf_v_t_end
+                price_curr = price_next
+            loss /= self.window
+            
+            #if i %  == 0:
+            print("episode", i, " loss:", float(loss))
+            
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
