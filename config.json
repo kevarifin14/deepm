@@ -4,6 +4,8 @@
         "end_date": "2018/04/20",
         "moving_average": true,
         "short_window": 10,
-        "long_window": 200
+        "long_window": 200,
+        "coins": ["BCH", "DASH","DGB" , "ETC", "ETH", "FCT", "GNT", "LTC", "SC", "STR", "XEM", "XMR", "XRP", "ZEC", "reversed_USDT"],
+        "features": ["close", "high", "low", "volume"]
     }
 }

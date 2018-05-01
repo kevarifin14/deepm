@@ -11,8 +11,8 @@ from datetime import datetime
 class MarketHistory:
     def __init__(self, config):
         self.config = config['market_history']
-        self.coins = ['BCH', 'DASH','DGB' , 'ETC', 'ETH', 'FCT', 'GNT', 'LTC', 'SC', 'STR', 'XEM', 'XMR', 'XRP', 'ZEC', 'reversed_USDT']                
-        self.features = ['close', 'high', 'low', 'volume']
+        self.coins = self.config['coins']
+        self.features = self.config['features']
         self.short_window = self.config['short_window']
         self.long_window = self.config['long_window']  
         self.moving_average = self.config['moving_average']      
