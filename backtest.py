@@ -4,6 +4,50 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
+class PortfolioManager:
+    def __init__(self,model):
+        """
+        Init with any model having the property forward(obs,previous_w) which will yield a torch tensor for the
+        next recommended allocation w.
+        """
+        self.model = model
+
+    def backtest(self,start_training,end_training,start_testing,end_testing,period=1800,include_fees=True):
+        """
+        Params:
+            --- start_training, end_training, start_testing, end_testing: dates in string format such as '2017/4/20'
+            --- period: number of seconds between each observations that the model trained on.
+            --- include_fees: Boolean for whether to show performance with or without transaction fees.
+        """
+        self.bt = Backtest(self,start_training,end_training,start_testing,end_testing,period,include_fees)
+
+    def get_policy(self,data):
+        """
+        Input: numpy array of shape [NUM_FEATURES, NUM_ASSETS, T]
+        Returns: a numpy array of shape [T, NUM_ASSET].
+        Notes: For the first "OBS_WINDOW" observations, allocation is considered to be entirely cash.
+               Doesn't trade if recommended allocation for a particular asset is less than a threshold CUTOFF_TRADE.
+        """
+        num_feature, num_asset, T = data.shape
+        btc_price_tensor = np.ones((num_feature, 1, T))
+        data_global = np.concatenate((btc_price_tensor, data), axis=1)
+        data_tensor = torch.from_numpy(data_global)
+        allocations = np.zeros((T,num_asset + 1))
+        allocations[:OBS_WINDOW,-1] = np.ones(OBS_WINDOW)
+        start_w = np.zeros((1,num_asset + 1))
+        start_w[:,-1] = 1
+        w = torch.from_numpy(start_w)
+        for t in range(OBS_WINDOW,T):
+            obs = get_observation(np.array([t]),data_tensor)
+            obs = obs.type(torch.float32)
+            w = self.model.forward(obs,w)
+            allocations[t] = w.data.numpy().squeeze()
+        self.allocations = allocations
+        alloc_without_cash = allocations[:,:-1]
+        alloc_without_cash[np.abs(alloc_without_cash) < CUTOFF_TRADE] = 0
+        return alloc_without_cash
+
+
 class Backtest:
     
     '''Performs basic functionalities of a trading simulation.
