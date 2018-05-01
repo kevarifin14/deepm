@@ -2,6 +2,7 @@
     "market_history": {
         "start_date": "2017/09/01",
         "end_date": "2018/04/20",
+        "moving_average": true,
         "short_window": 10,
         "long_window": 200
     }

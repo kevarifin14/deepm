@@ -14,14 +14,15 @@ class MarketHistory:
         self.coins = ['BCH', 'DASH','DGB' , 'ETC', 'ETH', 'FCT', 'GNT', 'LTC', 'SC', 'STR', 'XEM', 'XMR', 'XRP', 'ZEC', 'reversed_USDT']                
         self.features = ['close', 'high', 'low', 'volume']
         self.short_window = self.config['short_window']
-        self.long_window = self.config['long_window']        
+        self.long_window = self.config['long_window']  
+        self.moving_average = self.config['moving_average']      
         start_unix = int(self.parse_time(self.config['start_date']))
         end_unix = int(self.parse_time(self.config['end_date']))
         self.data = self.get_global_data_matrix(start_unix, end_unix)
 
-    def get_global_data_matrix(self, start, end, moving_average=True, period=1800):
+    def get_global_data_matrix(self, start, end, period=1800):
         matrix = self.get_global_panel(start, end, period).values
-        if moving_average:
+        if self.moving_average:
             df = pd.DataFrame(matrix[0])
             ma_short = df.rolling(window=self.short_window, axis=1).mean().as_matrix()[None, :, :]
             ma_long = df.rolling(window=self.long_window, axis=1).mean().as_matrix()[None, :, :]
