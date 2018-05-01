@@ -1,5 +1,9 @@
+import json
+
 from markethistory import MarketHistory
 from constants import * 
 
-market_history = MarketHistory(START_UTIME, END_UTIME)
+with open('config.json') as file:
+    config = json.load(file)
+markethistory = MarketHistory(config)
 

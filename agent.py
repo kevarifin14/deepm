@@ -8,7 +8,6 @@ class Agent:
         self.batch_size = batch_size
         self.net = net
         self.train_iterations = 100
-        self.data_global = 
         
         self.w = np.zeros(market_history.data.shape[1])
 
