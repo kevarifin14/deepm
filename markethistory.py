@@ -28,6 +28,7 @@ class MarketHistory:
             ma_long = df.rolling(window=self.long_window, axis=1).mean().as_matrix()[None, :, :]
             matrix = np.vstack((matrix, ma_short))
             matrix = np.vstack((matrix, ma_long))
+            matrix = matrix[:,:,self.long_window-1:]
         return self.matrix_filter_missing_coins(matrix)
 
     def get_global_panel(self, start, end, period=1800):
