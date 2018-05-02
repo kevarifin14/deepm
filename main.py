@@ -33,14 +33,14 @@ def main():
     if options.mode == 'train':
         print('Setting up agent and training model...')
         policy = DecisionNetwork_CNN()
-        data_global = np.load('data_global.npy')
+        data_global = np.load('saves/data_global.npy')
         agent = Agent(policy, config, data=data_global)
         agent.train()
-        torch.save(agent.policy, 'agent.pt')
+        torch.save(agent.policy, 'saves/agent.pt')
     elif options.mode == 'load_data':
         print('Loading global data...')
         data_global = get_data(config)
-        np.save('data_global.npy', data_global)
+        np.save('saves/data_global.npy', data_global)
     elif options.mode == 'backtest':
         print('Preparing backtest on last trained model...')
         policy = torch.load('agent.pt')

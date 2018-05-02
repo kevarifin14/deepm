@@ -16,4 +16,4 @@ To train an agent, run `python main.py --mode=train`. This will train an agent f
 
 - Running a backtest
 
-To test the 
+To test the model, run `python main.py --mode=backtest`. This will give a performance summary over training and test data. 
