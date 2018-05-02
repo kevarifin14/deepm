@@ -13,7 +13,7 @@ class Agent:
         self.period = self.config['period']
         self.window = self.config['window']
         self.batch_size = self.config['batch_size']
-        self.train_iterations = self.config['train_iterations']
+        self.episodes = self.config['episodes']
         self.txn_fee = self.config['txn_fee']
         self.sampling_bias = self.config['sampling_bias']
         self.num_assets = self.config['num_assets']
@@ -126,11 +126,11 @@ class Agent:
                 return u_next
             u = u_next
 
-    def train(self, episodes=10000):
+    def train(self):
         optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
         T = self.data_train.shape[-1]
         
-        for i in range(episodes):
+        for i in range(self.episodes):
             # geometrically sample start times: [batch]
             start_indices = self.sample_batch(self.batch_size, self.window, T-self.window, self.sampling_bias)
             # initialize portfolio weights: [batch, asset]
@@ -148,7 +148,7 @@ class Agent:
                 pf_w_t_start = self.policy.forward(obs, pf_w)
                 shrinkage = self.calculate_shrinkage(pf_w_t_start, pf_w)
                 pf_v_t_start = (pf_v * shrinkage).type(torch.float32)
-                
+
                 w_tmp = (price_next / price_curr) * pf_w_t_start # [batch, asset]
                 w_tmp_sum = torch.sum(w_tmp, dim=1) # [batch]
                 pf_v_t_end = w_tmp_sum * pf_v_t_start
@@ -169,3 +169,24 @@ class Agent:
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+    def get_policy(self, data):
+        """
+        Input: numpy array of shape [NUM_FEATURES, NUM_ASSETS, T]
+        Returns: a numpy array of shape [T, NUM_ASSET].
+        Notes: For the first "OBS_WINDOW" observations, allocation is considered to be entirely cash.
+               Doesn't trade if recommended allocation for a particular asset is less than a threshold CUTOFF_TRADE.
+        """
+        num_feature, num_asset, T = data.shape
+        data_tensor = data
+        allocations = np.zeros((T, num_asset))
+        allocations[:self.window, -1] = np.ones(self.window)
+        start_w = np.zeros((1, num_asset))
+        start_w[:,-1] = 1
+        w = torch.from_numpy(start_w)
+        for t in range(self.window, T):
+            obs = self.get_observation(np.array([t]), data_tensor)
+            obs = obs.type(torch.float32)
+            w = self.policy.forward(obs, w)
+            allocations[t] = w.data.numpy().squeeze()
+        return allocations
