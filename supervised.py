@@ -6,22 +6,24 @@ import pandas as pd
 import xgboost as xgb
 
 CLOSE_INDEX = 0 ###USED TO CALCULATE RETURNS###
-DEFAULT_PARAMS = {'max_depth':4, 'eta':.25, 'silent':0,'alpha':1,'min_child_weight':5, 'objective':"binary:logistic" }
+DEFAULT_PARAMS = {'max_depth':5, 'eta':.25, 'silent':1,'alpha':1,'min_child_weight':5, 'objective':"binary:logistic" }
 
 class Agent:
     """
     Train a different model for each asset. Based on performance on validation set, decide whether to trade or not.
     Allocation uniform across traded coins.
     """
-    def __init__(self,data,coin_names,thres_val=.4,max_gap=.4,num_rounds=10):
+    def __init__(self,data,coin_names,feature_list,thres_val=.4,max_gap=.4,num_rounds=10,params=DEFAULT_PARAMS):
         """
         Init with: --- data: a dictionary containing training and validation sets for each of the coins.
                    --- thres_val: worst allowed performance on validation set for a model on a particular coin to be trading.
                    --- max_gap: worst allowed difference between training and validation error.
         """
         models = {}
+        errors = {}
         for coin in data:
-            print("Training coin: " + coin_names[coin])
+            coin_name = coin_names[coin]
+            #print("Training coin: " + coin_names[coin])
             v = data[coin]
             dtrain = v["train"]
             X_train = dtrain[0]
@@ -29,12 +31,14 @@ class Agent:
             dvalid = v["valid"]
             X_valid = dvalid[0]
             y_valid = dvalid[1]
-            model = BoostedTreeModel(num_rounds=num_rounds)
+            model = BoostedTreeModel(feature_list,num_rounds=num_rounds,params=params)
             model.train(X_train,y_train)
             model.validate(X_valid,y_valid)
+            errors[coin_name] = [model.train_error,model.valid_error]
             models[coin_names[coin]] = model
         self.models = models
         self.select_traders(thres_val,max_gap)
+        print(pd.DataFrame(errors,index=["Training error","Validation error"]))
     def select_traders(self,thres_val=.4,max_gap=.4):
         traders = {}
         coins = []
@@ -51,18 +55,19 @@ class Agent:
 
 
 class BoostedTreeModel:
-    def __init__(self,params=DEFAULT_PARAMS,num_rounds=10):
+    def __init__(self,feature_list,params=DEFAULT_PARAMS,num_rounds=10):
         self.params = params
         self.num_rounds = num_rounds
+        self.features = feature_list
     def train(self,X,y):
-        dtrain = xgb.DMatrix(X,label=y)
+        dtrain = xgb.DMatrix(X,label=y,feature_names=self.features)
         self.bst = xgb.train(self.params, dtrain, self.num_rounds)
         self.train_error = float(self.bst.eval(dtrain)[15:20])
         if self.params["silent"] == 0:
             print("Training error")
             print(self.train_error)
     def validate(self,X,y):
-        dvalid = xgb.DMatrix(X,label=y)
+        dvalid = xgb.DMatrix(X,label=y,feature_names=self.features)
         self.valid_error = float(self.bst.eval(dvalid)[15:20])
         if self.params["silent"] == 0:
             print("Validation error")
@@ -70,9 +75,14 @@ class BoostedTreeModel:
     def predict(self,X):
         dtest = xgb.DMatrix(X)
         return self.bst.predict(dtest)
+    def plot_importance(self):
+        xgb.plot_importance(self.bst,max_num_features=10)
+    def plot_trees(self,num_trees=1):
+        for i in range(num_trees):
+            xgb.plot_tree(self.bst,num_trees=i)
 
 
-def data_maker(history,lookback_window=10, style="classification", shuffle=False, split_train=.7,normalization=None):
+def data_maker(history,features,lookback_window=10, style="classification", shuffle=False, split_train=.7,normalization=None):
     """
     Given a slice of market history, outputs training and validation sets.
     History: nd numpy array of shape [NUM_FEATURES, NUM_ASSETS, T]
@@ -94,8 +104,15 @@ def data_maker(history,lookback_window=10, style="classification", shuffle=False
     """
     data = {}
     NUM_FEATURES, NUM_ASSETS, T = history.shape
+    feature_list = []
+    feature_indices = []
+    for feat in features:
+        feature_indices.append(features[feat])
+        for i in range(lookback_window,0,-1):
+            feature_list.append(feat+" T-"+str(i))
+    feature_list.append("timestep")
     for coin in range(NUM_ASSETS):
-        prices = history[:,coin,:]
+        prices = history[feature_indices,coin,:]
         returns = np.diff(prices,axis=1) / prices[:,:-1]
         if normalization == "returns":
             series = returns
@@ -110,7 +127,7 @@ def data_maker(history,lookback_window=10, style="classification", shuffle=False
         X = []
         y = []
         for i in range(lookback_window,len(series[0])):
-            X.append(series[:,i-lookback_window:i].reshape(-1))
+            X.append(np.hstack([series[:,i-lookback_window:i].reshape(-1),i]))
             ret = returns[CLOSE_INDEX,i-offset]
             if style == "classification":
                 y.append((np.sign(ret)+1)/2)
@@ -124,7 +141,7 @@ def data_maker(history,lookback_window=10, style="classification", shuffle=False
         X_train, y_train = X[:s0], y[:s0]
         X_valid, y_valid = X[s0:], y[s0:]
         data[coin] = {"train":(X_train,y_train),"valid":(X_valid,y_valid)}
-    return data
+    return data,feature_list
 
 def shuffle_(x,y):
     mix = list(zip(x,y))

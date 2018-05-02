@@ -13,7 +13,8 @@ class MarketHistory:
         self.config = config['market_history']
         self.coins = self.config['coins']
         self.features = self.config['features']
-        self.ma_windows = self.config['ma_windows'] 
+        self.ma_windows = self.config['ma_windows']
+        self.std_window = self.config['std_window']
         self.moving_average = self.config['moving_average']      
         start_unix = int(self.parse_time(self.config['start_date']))
         end_unix = int(self.parse_time(self.config['end_date']))
@@ -24,9 +25,14 @@ class MarketHistory:
         if self.moving_average:
             df = pd.DataFrame(matrix[0])
             for window in self.ma_windows:
+                self.features.append("ma"+str(window))
                 ma = df.rolling(window=window, axis=1).mean().as_matrix()[None, :, :]
                 matrix = np.vstack((matrix, ma))
-            matrix = matrix[:,:,self.long_window-1:]
+            self.features.append("std")
+            std = df.rolling(window=self.std_window, axis=1).std().as_matrix()[None, :, :]
+            matrix = np.vstack((matrix,std))
+            cut_index = max(self.std_window,max(self.ma_windows)) - 1
+            matrix = matrix[:,:,cut_index:]
         return self.matrix_filter_missing_coins(matrix)
 
     def get_global_panel(self, start, end, period=1800):
