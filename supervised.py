@@ -6,14 +6,14 @@ import pandas as pd
 import xgboost as xgb
 
 CLOSE_INDEX = 0 ###USED TO CALCULATE RETURNS###
-DEFAULT_PARAMS = {'max_depth':5, 'eta':.25, 'silent':0,'alpha':1,'min_child_weight':5, 'objective':"binary:logistic" }
+DEFAULT_PARAMS = {'max_depth':4, 'eta':.25, 'silent':0,'alpha':1,'min_child_weight':5, 'objective':"binary:logistic" }
 
 class Agent:
     """
     Train a different model for each asset. Based on performance on validation set, decide whether to trade or not.
     Allocation uniform across traded coins.
     """
-    def __init__(self,data,coin_names,thres_val=.4,max_gap=.4):
+    def __init__(self,data,coin_names,thres_val=.4,max_gap=.4,num_rounds=10):
         """
         Init with: --- data: a dictionary containing training and validation sets for each of the coins.
                    --- thres_val: worst allowed performance on validation set for a model on a particular coin to be trading.
@@ -29,7 +29,7 @@ class Agent:
             dvalid = v["valid"]
             X_valid = dvalid[0]
             y_valid = dvalid[1]
-            model = BoostedTreeModel()
+            model = BoostedTreeModel(num_rounds=num_rounds)
             model.train(X_train,y_train)
             model.validate(X_valid,y_valid)
             models[coin_names[coin]] = model
