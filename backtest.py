@@ -35,15 +35,22 @@ class Backtest:
         policy_train = self.agent.get_policy(self.data_train)
         policy_test = self.agent.get_policy(self.data_test)
 
+        if type(self.data_train) == type({}): ##Then we know its a supervised agent with slighlty different API
+            prices_train = agent.prices_train
+            prices_test = agent.prices_test
+        else:
+            prices_train = self.data_train[0,:,:].numpy()
+            prices_test = self.data_test[0,:,:].numpy()
+
         print('Getting backtest results for train data...')
-        self.train_returns = self.calculate_returns(self.data_train, policy_train, include_fees=self.config['include_fees'])
+        self.train_returns = self.calculate_returns(prices_train, policy_train, include_fees=self.config['include_fees'])
         print('Getting backtest results for test data...')
-        self.test_returns = self.calculate_returns(self.data_test, policy_test, include_fees=self.config['include_fees'])
+        self.test_returns = self.calculate_returns(prices_test, policy_test, include_fees=self.config['include_fees'])
         self.performance_summary()
         
-    def calculate_returns(self, data, policy=None, include_fees=True):
+    def calculate_returns(self, prices_trading, policy=None, include_fees=True):
         weights = policy[:-1, :]
-        prices_trading = data[0, :, :].numpy()
+        unif_alloc = 1/np.max(weights)
         returns = np.diff(prices_trading, axis=1)
         ret = (returns / prices_trading[:, :-1]).T
         return_per_stamp = np.sum(weights * ret, axis=1)
@@ -55,9 +62,9 @@ class Backtest:
             trades[self.coins[i]] = trades_per_asset[i]
         self.num_trades = trades
         if include_fees is True:
-            count_trades = np.hstack([[0],count_trades]) #always no trade at the first timestep (all cash)
-            fees = count_trades * self.flat_fee
-            fees = np.sum(weights != 0,axis=1) * self.flat_fee
+            print("include_fees")
+            count_trades = np.hstack([0,count_trades]) #always no trade at the first timestep (all cash)
+            fees = count_trades * self.flat_fee / unif_alloc
             return_per_stamp = return_per_stamp - fees
         return return_per_stamp
     
