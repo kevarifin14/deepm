@@ -85,8 +85,6 @@ class DecisionNetwork_FC(nn.Module):
         batch_size, num_features,num_asset,window_length = obs.size()
         scores = nn.ReLU()(self.conv1(obs))
         scores = nn.ReLU()(self.conv2(scores))
-        import pdb
-        pdb.set_trace()
         scores = torch.cat([scores, prev_pf_w.view(batch_size, 1, num_asset, 1).float()], dim=1)
         scores = scores.permute(0, 3, 2, 1)
         scores = nn.ReLU()(self.linear1(scores))

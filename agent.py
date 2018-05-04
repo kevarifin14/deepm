@@ -101,7 +101,7 @@ class Agent:
         if self.gpu:
             obs = obs.type(torch.cuda.FloatTensor)
         else: 
-            obs = obs.type(torch.float32)
+            obs = obs.type(self.dtype)
         return obs
 
     def calculate_shrinkage(self, w, w_prev):
@@ -148,14 +148,14 @@ class Agent:
             
             # simulate one episode of live trading with the policy
             loss = 0
-            price_curr = self.data_train[0, :, start_indices].transpose(0, 1).type(torch.float32) # [batch, asset]
+            price_curr = self.data_train[0, :, start_indices].transpose(0, 1).type(self.dtype) # [batch, asset]
             for t in range(0, self.window):
-                price_next = self.data_train[0, :, start_indices+t+1].transpose(0, 1).type(torch.float32) # [batch, asset]
+                price_next = self.data_train[0, :, start_indices+t+1].transpose(0, 1).type(self.dtype) # [batch, asset]
                 obs = self.get_observation(start_indices+t, self.data_train)
                 
                 pf_w_t_start = self.policy.forward(obs, pf_w)
                 shrinkage = self.calculate_shrinkage(pf_w_t_start, pf_w)
-                pf_v_t_start = (pf_v * shrinkage).type(torch.float32)
+                pf_v_t_start = (pf_v * shrinkage).type(self.dtype)
 
                 w_tmp = (price_next / price_curr) * pf_w_t_start # [batch, asset]
                 w_tmp_sum = torch.sum(w_tmp, dim=1) # [batch]
@@ -194,7 +194,7 @@ class Agent:
         w = torch.from_numpy(start_w)
         for t in range(self.window, T):
             obs = self.get_observation(np.array([t]), data_tensor)
-            obs = obs.type(torch.float32)
+            obs = obs.type(self.dtype)
             w = self.policy.forward(obs, w)
             allocations[t] = w.data.numpy().squeeze()
         return allocations

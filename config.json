@@ -18,7 +18,7 @@
         "sampling_bias": 1.9e-3,
         "num_assets": 12, 
         "lr": 1e-3, 
-        "gpu": true
+        "gpu": false
     },
     "backtest": {
         "bt_start_date": "2018/04/10",
