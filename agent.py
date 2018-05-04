@@ -131,7 +131,7 @@ class Agent:
             u_next = (const1 - const2 * torch.sum(F.relu(w0_m - (u*w1_m_T).transpose(0,1)), dim=1)) / const3
             max_diff = torch.max(torch.abs(u - u_next))
             if max_diff <= 1e-10:
-                return u_next
+                return u_next.type(self.dtype)
             u = u_next
 
     def train(self):
