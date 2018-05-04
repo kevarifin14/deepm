@@ -48,6 +48,55 @@ class DecisionNetwork_CNN(nn.Module):
         new_pf_w = F.softmax(scores, dim=dim)
         return new_pf_w
 
+class DecisionNetwork_FC(nn.Module):
+    """
+    An EIIE style decision network implemented with CNN without separate
+    cash bias.
+    """
+    
+    def __init__(self):
+        super(DecisionNetwork_FC, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=6, 
+                               out_channels=6, 
+                               kernel_size=[1, 6]) # can also use [1,2]
+        self.conv2 = nn.Conv2d(in_channels=6, 
+                               out_channels=20, # can also use 10
+                               kernel_size=[1, 45])
+        self.conv3 = nn.Conv2d(in_channels=32, 
+                               out_channels=1, 
+                               kernel_size=[1, 1])
+        self.linear1 = nn.Linear(21, 32)
+                               
+        
+    def forward(self, obs, prev_pf_w):
+        """
+        Compute the forward pass. 
+        
+        Input:
+        - obs: A fresh observation of the market environment at the current time step.
+          A tensor of shape [BATCH_SIZE, NUM_FEATURE, NUM_ASSET, OBS_WINDOW].
+        - prev_pf_w: The portfolio weight vector in the previous time step. A tensor
+          of shape [BATCH_SIZE, NUM_ASSET].
+        
+        Returns:
+        - new_pf_w: The new portfolio weight vector for the current time step. A tensor
+          of shape [BATCH_SIZE, NUM_ASSET]
+        """
+        batch_size, num_features,num_asset,window_length = obs.size()
+        scores = nn.ReLU()(self.conv1(obs))
+        scores = nn.ReLU()(self.conv2(scores))
+        scores = torch.cat([scores, prev_pf_w.view(batch_size, 1, num_asset, 1).float()], dim=1)
+        scores = scores.permute(0, 3, 2, 1)
+        scores = nn.ReLU()(self.linear1(scores))
+        scores = scores.permute(0, 3, 2, 1)
+        scores = self.conv3(scores).squeeze()
+        if batch_size == 1:
+            dim = 0
+        else:
+            dim = 1
+        new_pf_w = F.softmax(scores, dim=dim)
+        return new_pf_w
+        
 
 class DecisionNetwork_RNN(nn.Module):
     """

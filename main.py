@@ -10,10 +10,13 @@ from networks import *
 
 def build_parser():
     parser = ArgumentParser()
-    parser.add_argument("--mode",dest="mode",
-                        help="start mode, train, generate, load_data"
-                             " backtest",
-                        metavar="MODE", default="train")
+    parser.add_argument('--mode',dest='mode',
+                        help='start mode, train, generate, load_data'
+                             ' backtest',
+                        metavar='MODE', default='train')
+    parser.add_argument('--net',dest='net',
+                        help='conv, conv_fc'
+                             ' backtest', default='conv')
     return parser
 
 def get_data(config):
@@ -32,7 +35,10 @@ def main():
 
     if options.mode == 'train':
         print('Setting up agent and training model...')
-        policy = DecisionNetwork_CNN()
+        if options.net == 'conv':
+            policy = DecisionNetwork_CNN()
+        if options.net == 'conv_fc':
+            policy = DecisionNetwork_FC()
         data_global = np.load('saves/data_global.npy')
         agent = Agent(policy, config, data=data_global)
         agent.train()

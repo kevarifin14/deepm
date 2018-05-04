@@ -2,10 +2,10 @@
     "market_history": {
         "start_date": "2017/09/01",
         "end_date": "2018/04/20",
-        "sampling_frequency":300,
+        "sampling_frequency": 300,
         "moving_average": true,
-        "ma_windows": [10,50,100,200],
-        "std_window":100,
+        "ma_windows": [10, 50, 100, 200],
+        "std_window": 100,
         "coins": ["BCH", "DASH","DGB" , "ETC", "ETH", "FCT", "GNT", "LTC", "SC", "STR", "XEM", "XMR", "XRP", "ZEC", "reversed_USDT"],
         "features": ["close", "high", "low", "volume"]
     },
@@ -13,11 +13,11 @@
         "period": 1800, 
         "window": 50,
         "batch_size": 128,
-        "episodes": 1000,
+        "episodes": 100,
         "txn_fee": 0.0025, 
         "sampling_bias": 1.9e-3,
         "num_assets": 12, 
-        "lr": 0.1
+        "lr": 1e-3
     },
     "backtest": {
         "bt_start_date": "2018/04/10",
