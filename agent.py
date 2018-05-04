@@ -152,7 +152,7 @@ class Agent:
             for t in range(0, self.window):
                 price_next = self.data_train[0, :, start_indices+t+1].transpose(0, 1).type(self.dtype) # [batch, asset]
                 obs = self.get_observation(start_indices+t, self.data_train)
-                
+                pf_w = pf_w.type(self.dtype)
                 pf_w_t_start = self.policy.forward(obs, pf_w)
                 shrinkage = self.calculate_shrinkage(pf_w_t_start, pf_w)
                 pf_v_t_start = (pf_v * shrinkage).type(self.dtype)
