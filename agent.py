@@ -131,7 +131,7 @@ class Agent:
             u_next = (const1 - const2 * torch.sum(F.relu(w0_m - (u*w1_m_T).transpose(0,1)), dim=1)) / const3
             max_diff = torch.max(torch.abs(u - u_next))
             if max_diff <= 1e-10:
-                return u_next.type(self.dtype)
+                return u_next
             u = u_next
 
     def train(self):
@@ -153,6 +153,7 @@ class Agent:
                 price_next = self.data_train[0, :, start_indices+t+1].transpose(0, 1).type(self.dtype) # [batch, asset]
                 obs = self.get_observation(start_indices+t, self.data_train)
                 pf_w = pf_w.type(self.dtype)
+                pf_v = pf_v.type(self.dtype)
                 pf_w_t_start = self.policy.forward(obs, pf_w)
                 shrinkage = self.calculate_shrinkage(pf_w_t_start, pf_w)
                 pf_v_t_start = (pf_v * shrinkage).type(self.dtype)
