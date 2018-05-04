@@ -18,14 +18,19 @@ class Agent:
         self.sampling_bias = self.config['sampling_bias']
         self.num_assets = self.config['num_assets']
         self.lr = self.config['lr']
-        
+        self.gpu = self.config['gpu']
+
         if data is None:
             self.data_global = self.get_data(config)
         else: 
             self.data_global = data
         self.data_train, self.data_valid, self.data_test = self.split_data()
         self.policy = policy
-
+        if self.config['gpu']:
+            self.policy.cuda()
+            self.dtype = torch.cuda.FloatTensor
+        else:
+            self.dtype = torch.float32
     def get_data(self, config):
         data_global = MarketHistory(config).data
         num_feature, num_asset, T = data_global.shape
@@ -93,7 +98,10 @@ class Agent:
         obs_features = torch.stack(obs, dim=-1)
         
         obs = torch.cat((obs_prices, obs_features), 1)
-        obs = obs.type(torch.float32)
+        if self.gpu:
+            obs = obs.type(torch.cuda.FloatTensor)
+        else: 
+            obs = obs.type(torch.float32)
         return obs
 
     def calculate_shrinkage(self, w, w_prev):

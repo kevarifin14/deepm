@@ -85,6 +85,8 @@ class DecisionNetwork_FC(nn.Module):
         batch_size, num_features,num_asset,window_length = obs.size()
         scores = nn.ReLU()(self.conv1(obs))
         scores = nn.ReLU()(self.conv2(scores))
+        import pdb
+        pdb.set_trace()
         scores = torch.cat([scores, prev_pf_w.view(batch_size, 1, num_asset, 1).float()], dim=1)
         scores = scores.permute(0, 3, 2, 1)
         scores = nn.ReLU()(self.linear1(scores))
@@ -139,7 +141,7 @@ class DecisionNetwork_RNN(nn.Module):
             h_0 = torch.zeros(1, batch_size, self.hidden_size) # TODO: try other inits
             output, h_t = self.rnn(obs[:, :, :, asset], h_0)
             scores_list.append(output[:, -1, :])
-        scores = torch.stack(scores_list, dim=2)
+        scores = torch.stack(scores_list, dim=2, dtype=torch.cuda.FloatTensor)
         scores = scores.view(batch_size, self.hidden_size, num_assets, 1)
         scores = torch.cat([scores, prev_pv.view(batch_size, 1, num_assets, 1)], dim=1)
         scores = self.conv(scores).squeeze()
