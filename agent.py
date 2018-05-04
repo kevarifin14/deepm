@@ -139,6 +139,9 @@ class Agent:
         T = self.data_train.shape[-1]
         
         for i in range(self.episodes):
+            if i % 99 == 0:
+                print('Checkpoint {}: Saving agent'.format(i))
+                torch.save(self.policy, 'saves/agent.pt')
             # geometrically sample start times: [batch]
             start_indices = self.sample_batch(self.batch_size, self.window, T-self.window, self.sampling_bias)
             # initialize portfolio weights: [batch, asset]
@@ -187,7 +190,7 @@ class Agent:
                Doesn't trade if recommended allocation for a particular asset is less than a threshold CUTOFF_TRADE.
         """
         num_feature, num_asset, T = data.shape
-        data_tensor = data
+        data_tensor = data.type(self.dtype)
         allocations = np.zeros((T, num_asset))
         allocations[:self.window, -1] = np.ones(self.window)
         start_w = np.zeros((1, num_asset))
@@ -196,6 +199,7 @@ class Agent:
         for t in range(self.window, T):
             obs = self.get_observation(np.array([t]), data_tensor)
             obs = obs.type(self.dtype)
+            w = w.type(self.dtype)
             w = self.policy.forward(obs, w)
-            allocations[t] = w.data.numpy().squeeze()
+            allocations[t] = w.cpu().data.numpy().squeeze()
         return allocations

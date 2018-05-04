@@ -49,8 +49,8 @@ def main():
         np.save('saves/data_global.npy', data_global)
     elif options.mode == 'backtest':
         print('Preparing backtest on last trained model...')
-        policy = torch.load('agent.pt')
-        data_global = np.load('data_global.npy')
+        policy = torch.load('saves/agent.pt')
+        data_global = np.load('saves/data_global.npy')
         agent = Agent(policy, config, data=data_global)
         bt = Backtest(agent, config)
 

@@ -1,6 +1,6 @@
 {
     "market_history": {
-        "start_date": "2017/09/01",
+        "start_date": "2018/04/01",
         "end_date": "2018/04/20",
         "sampling_frequency": 300,
         "moving_average": true,
@@ -13,7 +13,7 @@
         "period": 1800, 
         "window": 50,
         "batch_size": 128,
-        "episodes": 100,
+        "episodes": 500,
         "txn_fee": 0.0025, 
         "sampling_bias": 1.9e-3,
         "num_assets": 12, 
