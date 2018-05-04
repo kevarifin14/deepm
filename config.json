@@ -12,8 +12,8 @@
     "agent": {
         "period": 1800, 
         "window": 50,
-        "batch_size": 128,
-        "episodes": 500,
+        "batch_size": 256,
+        "episodes": 1500,
         "txn_fee": 0.0025, 
         "sampling_bias": 1.9e-3,
         "num_assets": 12, 

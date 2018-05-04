@@ -62,13 +62,13 @@ class DecisionNetwork_FC(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=6, 
                                out_channels=20, # can also use 10
                                kernel_size=[1, 45])
-        self.conv3 = nn.Conv2d(in_channels=32, 
+        self.conv3 = nn.Conv2d(in_channels=16, 
                                out_channels=1, 
                                kernel_size=[1, 1])
         self.linear1 = nn.Linear(21, 32)
         self.linear2 = nn.Linear(32, 16)
-                               
-        
+        self.batchnorm1 = nn.BatchNorm2d(32)                               
+        self.batchnorm2 = nn.BatchNorm2d(16) 
     def forward(self, obs, prev_pf_w):
         """
         Compute the forward pass. 
@@ -88,9 +88,9 @@ class DecisionNetwork_FC(nn.Module):
         scores = nn.ReLU()(self.conv2(scores))
         scores = torch.cat([scores, prev_pf_w.view(batch_size, 1, num_asset, 1).float()], dim=1)
         scores = scores.permute(0, 3, 2, 1)
-        scores = nn.ReLU()(self.linear1(scores))
-        scores = nn.ReLU()(self.linear2(scores))
-        scores = scores.permute(0, 3, 2, 1)
+        scores = nn.ReLU()(self.batchnorm1(self.linear1(scores).permute(0, 3, 2, 1).contiguous())).permute(0, 3, 2, 1)
+        scores = nn.ReLU()(self.batchnorm2(self.linear2(scores).permute(0, 3, 2, 1).contiguous()))
+        #scores = scores.permute(0, 3, 2, 1)
         scores = self.conv3(scores).squeeze()
         if batch_size == 1:
             dim = 0
