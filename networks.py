@@ -66,6 +66,7 @@ class DecisionNetwork_FC(nn.Module):
                                out_channels=1, 
                                kernel_size=[1, 1])
         self.linear1 = nn.Linear(21, 32)
+        self.linear2 = nn.Linear(32, 16)
                                
         
     def forward(self, obs, prev_pf_w):
@@ -88,6 +89,7 @@ class DecisionNetwork_FC(nn.Module):
         scores = torch.cat([scores, prev_pf_w.view(batch_size, 1, num_asset, 1).float()], dim=1)
         scores = scores.permute(0, 3, 2, 1)
         scores = nn.ReLU()(self.linear1(scores))
+        scores = nn.ReLU()(self.linear2(scores))
         scores = scores.permute(0, 3, 2, 1)
         scores = self.conv3(scores).squeeze()
         if batch_size == 1:

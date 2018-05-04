@@ -135,6 +135,7 @@ class Agent:
             u = u_next
 
     def train(self):
+        self.training_losses = []
         optimizer = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
         T = self.data_train.shape[-1]
         
@@ -174,7 +175,7 @@ class Agent:
                 pf_v = pf_v_t_end
                 price_curr = price_next
             loss /= self.window
-            
+            self.training_losses.append(loss)
             #if i %  == 0:
             print("episode", i, " loss:", float(loss))
             
